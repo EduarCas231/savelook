@@ -14,6 +14,7 @@ import {
   SafeAreaView
 } from 'react-native'
 import { loginStyles as styles } from '../styles/LoginStyles'
+import { API_BASE_URL } from '@env'
 
 const { width, height } = Dimensions.get('window')
 
@@ -50,7 +51,7 @@ const LoginScreen = ({ navigation }) => {
     setIsLoading(true)
 
     try {
-      const response = await fetch('https://savelook.duckdns.org:8443/get_users')
+      const response = await fetch(`${API_BASE_URL}/get_users`)
       const data = await response.json()
 
       console.log("Usuarios encontrados:", data)

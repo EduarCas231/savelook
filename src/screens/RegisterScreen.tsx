@@ -17,6 +17,7 @@ import {
 } from 'react-native'
 import { launchImageLibrary, launchCamera } from 'react-native-image-picker'
 import { registerScreenStyles as styles } from '../styles/RegisterScreenStyles'
+import { API_BASE_URL } from '@env'
 
 const RegisterScreen = ({ navigation }) => {
   const [correo, setCorreo] = useState('')
@@ -55,7 +56,7 @@ const RegisterScreen = ({ navigation }) => {
 
     setIsLoading(true)
     try {
-      const res = await fetch('https://savelook.duckdns.org:8443/send_verification_code', {
+      const res = await fetch(`${API_BASE_URL}/send_verification_code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ correo })
@@ -123,7 +124,7 @@ const RegisterScreen = ({ navigation }) => {
 
     setIsLoading(true)
     try {
-      const response = await fetch('https://savelook.duckdns.org:8443/up_user', {
+      const response = await fetch(`${API_BASE_URL}/up_user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(usuario),

@@ -15,8 +15,9 @@ import {
 import Geolocation from '@react-native-community/geolocation';
 import MapboxGL from '@rnmapbox/maps';
 import { homeMapboxStyles as styles } from '../styles/HomeMapboxStyles';
+import { MAPBOX_ACCESS_TOKEN, API_BASE_URL } from '@env';
 
-MapboxGL.setAccessToken('pk.eyJ1IjoiZWR1YXJjYXMiLCJhIjoiY21pNmU0OXNuMHp2czJqbzU1a2EwajJ2NyJ9.AkkDvt6A5atxwXfoYCSXgw');
+MapboxGL.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
 
 
@@ -33,7 +34,7 @@ const HomeMapbox = () => {
   const getUserData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('https://savelook.duckdns.org:8443/get_users');
+      const response = await fetch(`${API_BASE_URL}/get_users`);
       const data = await response.json();
       setUser(data[0]);
     } catch (error) {
