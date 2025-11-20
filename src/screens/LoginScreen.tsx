@@ -1,12 +1,11 @@
 import React, { useState } from 'react'
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
-  useColorScheme, 
-  Image,
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,6 +13,7 @@ import {
   Dimensions,
   SafeAreaView
 } from 'react-native'
+import { loginStyles as styles } from '../styles/LoginStyles'
 
 const { width, height } = Dimensions.get('window')
 
@@ -23,7 +23,7 @@ const LoginScreen = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false)
   const [fadeAnim] = useState(new Animated.Value(0))
   const [slideAnim] = useState(new Animated.Value(30))
-  
+
   const isDark = useColorScheme() === 'dark'
 
   React.useEffect(() => {
@@ -40,7 +40,7 @@ const LoginScreen = ({ navigation }) => {
       })
     ]).start()
   }, [])
-
+  
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Por favor ingresa email y contraseña')
@@ -48,92 +48,109 @@ const LoginScreen = ({ navigation }) => {
     }
 
     setIsLoading(true)
+
     try {
-      // Simular proceso de login
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      console.log('Login:', { email, password })
-      // Aquí iría la llamada a tu API
+      const response = await fetch('https://savelook.duckdns.org:8443/get_users')
+      const data = await response.json()
+
+      console.log("Usuarios encontrados:", data)
+
+      // Buscar coincidencia exacta
+      const usuario = data.find(
+        u => u.correo === email && u.password === password
+      )
+
+      if (usuario) {
+        console.log("Login exitoso:", usuario)
+        navigation.navigate('HomeMapbox')
+      } else {
+        Alert.alert("Credenciales incorrectas", "Email o contraseña no coinciden")
+      }
+
     } catch (error) {
-      Alert.alert('Error', 'Error al iniciar sesión')
+      console.error("Error en login:", error)
+      Alert.alert("Error", "No se pudo conectar con el servidor")
     } finally {
       setIsLoading(false)
     }
   }
 
-  const gradientColors = isDark 
-    ? ['#0c0c0c', '#1a1a1a', '#2d2d2d']
-    : ['#ffffff', '#f8f9fa', '#e9ecef']
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? '#0c0c0c' : '#ffffff' }}>
-      <KeyboardAvoidingView 
+    <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? '#0a0a0a' : '#f8fafc' }}>
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView 
+        <ScrollView
           contentContainerStyle={styles.scrollContainer}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Animated.View 
+          <Animated.View
             style={[
               styles.container,
-              { 
+              {
                 opacity: fadeAnim,
                 transform: [{ translateY: slideAnim }]
               }
             ]}
           >
-            
-            {/* Header Section */}
+
+            {/* Header Section - Más minimalista */}
             <View style={styles.header}>
               <View style={[
                 styles.logoContainer,
-                { backgroundColor: isDark ? '#2d2d2d' : '#e3f2fd' }
+                { 
+                  backgroundColor: 'transparent',
+                  marginBottom: 8
+                }
               ]}>
-                <Text style={[
-                  styles.logoText,
-                  { color: isDark ? '#4dabf7' : '#1971c2' }
-                ]}>
-                  🔐
-                </Text>
+                
               </View>
               <Text style={[
-                styles.title, 
-                { color: isDark ? '#ffffff' : '#1a1a1a' }
+                styles.title,
+                { 
+                  color: isDark ? '#ffffff' : '#1a1a1a',
+                  fontSize: 28,
+                  fontWeight: '300',
+                  letterSpacing: -0.5
+                }
               ]}>
                 Bienvenido
               </Text>
               <Text style={[
                 styles.subtitle,
-                { color: isDark ? '#bbbbbb' : '#666666' }
+                { 
+                  color: isDark ? '#94a3b8' : '#64748b',
+                  fontSize: 16,
+                  marginTop: 8
+                }
               ]}>
-                Inicia sesión en tu cuenta
+                Inicia sesión para continuar
               </Text>
             </View>
 
-            {/* Form Section */}
+            {/* Form Section - Más limpio */}
             <View style={styles.formContainer}>
-              
+
               {/* Email Input */}
               <View style={styles.inputContainer}>
-                <Text style={[
-                  styles.label,
-                  { color: isDark ? '#e0e0e0' : '#555555' }
-                ]}>
-                  Correo Electrónico
-                </Text>
                 <TextInput
                   style={[
                     styles.input,
-                    { 
-                      backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
-                      borderColor: isDark ? '#404040' : '#e0e0e0',
-                      color: isDark ? '#ffffff' : '#000000',
-                      shadowColor: isDark ? '#000' : '#e0e0e0'
+                    {
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      borderColor: isDark ? '#334155' : '#e2e8f0',
+                      color: isDark ? '#f1f5f9' : '#0f172a',
+                      borderWidth: 1.5,
+                      paddingHorizontal: 20,
+                      paddingVertical: 16,
+                      fontSize: 16,
+                      borderRadius: 12
                     }
                   ]}
-                  placeholder="tu@email.com"
-                  placeholderTextColor={isDark ? '#888888' : '#999999'}
+                  placeholder="Correo electrónico"
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
@@ -144,24 +161,22 @@ const LoginScreen = ({ navigation }) => {
 
               {/* Password Input */}
               <View style={styles.inputContainer}>
-                <Text style={[
-                  styles.label,
-                  { color: isDark ? '#e0e0e0' : '#555555' }
-                ]}>
-                  Contraseña
-                </Text>
                 <TextInput
                   style={[
                     styles.input,
-                    { 
-                      backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
-                      borderColor: isDark ? '#404040' : '#e0e0e0',
-                      color: isDark ? '#ffffff' : '#000000',
-                      shadowColor: isDark ? '#000' : '#e0e0e0'
+                    {
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      borderColor: isDark ? '#334155' : '#e2e8f0',
+                      color: isDark ? '#f1f5f9' : '#0f172a',
+                      borderWidth: 1.5,
+                      paddingHorizontal: 20,
+                      paddingVertical: 16,
+                      fontSize: 16,
+                      borderRadius: 12
                     }
                   ]}
-                  placeholder="••••••••"
-                  placeholderTextColor={isDark ? '#888888' : '#999999'}
+                  placeholder="Contraseña"
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry
@@ -173,17 +188,34 @@ const LoginScreen = ({ navigation }) => {
               <TouchableOpacity style={styles.forgotPassword}>
                 <Text style={[
                   styles.forgotText,
-                  { color: isDark ? '#4dabf7' : '#1971c2' }
+                  { 
+                    color: isDark ? '#60a5fa' : '#2563eb',
+                    fontSize: 14,
+                    fontWeight: '500'
+                  }
                 ]}>
                   ¿Olvidaste tu contraseña?
                 </Text>
               </TouchableOpacity>
 
-              {/* Login Button */}
-              <TouchableOpacity 
+              {/* Login Button - Más elegante */}
+              <TouchableOpacity
                 style={[
                   styles.button,
-                  isLoading && styles.buttonDisabled
+                  isLoading && styles.buttonDisabled,
+                  {
+                    backgroundColor: isDark ? '#2563eb' : '#1d4ed8',
+                    borderRadius: 12,
+                    height: 56,
+                    shadowColor: isDark ? '#2563eb' : '#1d4ed8',
+                    shadowOffset: {
+                      width: 0,
+                      height: 4,
+                    },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    elevation: 6,
+                  }
                 ]}
                 onPress={handleLogin}
                 disabled={isLoading}
@@ -191,76 +223,88 @@ const LoginScreen = ({ navigation }) => {
                 <View style={styles.buttonContent}>
                   {isLoading ? (
                     <View style={styles.loadingContainer}>
-                      <View style={[
-                        styles.loadingDot,
-                        { backgroundColor: isDark ? '#ffffff' : '#ffffff' }
-                      ]} />
-                      <View style={[
-                        styles.loadingDot,
-                        { backgroundColor: isDark ? '#ffffff' : '#ffffff' }
-                      ]} />
-                      <View style={[
-                        styles.loadingDot,
-                        { backgroundColor: isDark ? '#ffffff' : '#ffffff' }
-                      ]} />
+                      <View style={[styles.loadingDot, { backgroundColor: '#fff' }]} />
+                      <View style={[styles.loadingDot, { backgroundColor: '#fff' }]} />
+                      <View style={[styles.loadingDot, { backgroundColor: '#fff' }]} />
                     </View>
                   ) : (
                     <>
-                      <Text style={styles.buttonText}>Ingresar</Text>
-                      <Text style={styles.buttonIcon}>→</Text>
+                      <Text style={[
+                        styles.buttonText,
+                        {
+                          fontSize: 16,
+                          fontWeight: '600',
+                          letterSpacing: 0.5
+                        }
+                      ]}>
+                        Ingresar
+                      </Text>
+                      <Text style={[
+                        styles.buttonIcon,
+                        {
+                          fontSize: 20,
+                          marginLeft: 8
+                        }
+                      ]}>
+                        
+                      </Text>
                     </>
                   )}
                 </View>
               </TouchableOpacity>
 
-              {/* Divider */}
-              <View style={styles.dividerContainer}>
-                <View style={[
-                  styles.divider,
-                  { backgroundColor: isDark ? '#404040' : '#e0e0e0' }
-                ]} />
-                <Text style={[
-                  styles.dividerText,
-                  { color: isDark ? '#888888' : '#999999' }
-                ]}>
-                  o
-                </Text>
-                <View style={[
-                  styles.divider,
-                  { backgroundColor: isDark ? '#404040' : '#e0e0e0' }
-                ]} />
-              </View>
-
-              {/* Register Link */}
+              {/* Register Link - Más sutil */}
               <View style={styles.registerContainer}>
                 <Text style={[
                   styles.registerText,
-                  { color: isDark ? '#bbbbbb' : '#666666' }
+                  { 
+                    color: isDark ? '#94a3b8' : '#64748b',
+                    fontSize: 15
+                  }
                 ]}>
                   ¿No tienes cuenta?
                 </Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.registerButton}
                   onPress={() => navigation.navigate('Register')}
                 >
                   <Text style={[
                     styles.registerButtonText,
-                    { color: isDark ? '#4dabf7' : '#1971c2' }
+                    { 
+                      color: isDark ? '#60a5fa' : '#2563eb',
+                      fontSize: 15,
+                      fontWeight: '600',
+                      marginLeft: 6
+                    }
                   ]}>
                     Regístrate
                   </Text>
                 </TouchableOpacity>
               </View>
+
             </View>
 
-            {/* Footer */}
+            {/* Footer - Más discreto */}
             <View style={styles.footer}>
               <Text style={[
                 styles.footerText,
-                { color: isDark ? '#666666' : '#999999' }
+                { 
+                  color: isDark ? '#475569' : '#94a3b8',
+                  fontSize: 13,
+                  textAlign: 'center',
+                  lineHeight: 18
+                }
               ]}>
-                Al ingresar aceptas nuestros{'\n'}
-                <Text style={styles.footerLink}>Términos y Condiciones</Text>
+                Al ingresar aceptas nuestros{' '}
+                <Text style={[
+                  styles.footerLink,
+                  { 
+                    color: isDark ? '#60a5fa' : '#2563eb',
+                    fontWeight: '500'
+                  }
+                ]}>
+                  Términos y Condiciones
+                </Text>
               </Text>
             </View>
 
@@ -270,166 +314,5 @@ const LoginScreen = ({ navigation }) => {
     </SafeAreaView>
   )
 }
-
-const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 30,
-    paddingVertical: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 50,
-    marginTop: 90,
-  },
-  logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  logoText: {
-    fontSize: 32,
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    fontWeight: '400',
-  },
-  formContainer: {
-    marginBottom: 30,
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginLeft: 5,
-  },
-  input: {
-    borderWidth: 2,
-    padding: 18,
-    borderRadius: 16,
-    fontSize: 16,
-    fontWeight: '500',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  forgotPassword: {
-    alignItems: 'flex-end',
-    marginBottom: 30,
-  },
-  forgotText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  button: {
-    backgroundColor: '#1971c2',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 25,
-    shadowColor: '#1971c2',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  buttonContent: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '700',
-    marginRight: 8,
-  },
-  buttonIcon: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 3,
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginHorizontal: 15,
-  },
-  registerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  registerText: {
-    fontSize: 15,
-    fontWeight: '500',
-    marginRight: 5,
-  },
-  registerButton: {
-    padding: 5,
-  },
-  registerButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  footer: {
-    alignItems: 'center',
-    marginTop: 'auto',
-    paddingBottom: 20,
-  },
-  footerText: {
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  footerLink: {
-    fontWeight: '600',
-  },
-})
 
 export default LoginScreen

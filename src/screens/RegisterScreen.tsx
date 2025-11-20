@@ -4,7 +4,6 @@ import {
   Text, 
   TextInput, 
   TouchableOpacity, 
-  StyleSheet, 
   ScrollView, 
   useColorScheme, 
   Alert,
@@ -12,8 +11,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
-  SafeAreaView
+  SafeAreaView,
+  Image,
+  PermissionsAndroid
 } from 'react-native'
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker'
+import { registerScreenStyles as styles } from '../styles/RegisterScreenStyles'
 
 const RegisterScreen = ({ navigation }) => {
   const [correo, setCorreo] = useState('')
@@ -29,12 +32,13 @@ const RegisterScreen = ({ navigation }) => {
   const [ciudad, setCiudad] = useState('')
   const [cp, setCp] = useState('')
   const [tipoSangre, setTipoSangre] = useState('')
+  const [descripcionLook, setDescripcionLook] = useState('')
+  const [imagenLook, setImagenLook] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [fadeAnim] = useState(new Animated.Value(0))
   
   const isDark = useColorScheme() === 'dark'
 
-  // Animación de entrada
   React.useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -43,7 +47,6 @@ const RegisterScreen = ({ navigation }) => {
     }).start()
   }, [])
 
-  // ✅ Enviar código de verificación al correo
   const enviarCodigo = async () => {
     if (!correo || !correo.includes('@')) {
       Alert.alert('Correo inválido', 'Por favor ingresa un correo electrónico válido.')
@@ -62,7 +65,7 @@ const RegisterScreen = ({ navigation }) => {
 
       if (res.ok) {
         setCodigoEnviado(true)
-        setShowCodeModal(true) // Mostrar modal obligatorio
+        setShowCodeModal(true)
         Alert.alert('📧 Código enviado', 'Revisa tu correo para obtener el código de verificación.')
       } else {
         Alert.alert('❌ Error', result.error || 'No se pudo enviar el código.')
@@ -74,7 +77,6 @@ const RegisterScreen = ({ navigation }) => {
     }
   }
 
-  // ✅ Verificar código
   const verificarCodigo = async () => {
     if (!codigo) {
       Alert.alert('Código requerido', 'Por favor ingresa el código de verificación.')
@@ -83,8 +85,6 @@ const RegisterScreen = ({ navigation }) => {
 
     setIsLoading(true)
     try {
-      // Aquí iría la verificación del código con el servidor
-      // Por ahora simulamos una verificación exitosa
       setShowCodeModal(false)
       Alert.alert('✅ Código verificado', 'Tu correo ha sido verificado correctamente.')
     } catch (error) {
@@ -94,7 +94,6 @@ const RegisterScreen = ({ navigation }) => {
     }
   }
 
-  // ✅ Registrar usuario (solo si el código fue verificado)
   const handleRegister = async () => {
     if (!codigoEnviado) {
       Alert.alert('Verificación requerida', 'Debes verificar tu correo electrónico antes de registrarte.')
@@ -118,6 +117,8 @@ const RegisterScreen = ({ navigation }) => {
       ciudad,
       cp,
       tipoSangre,
+      descripcion_look: descripcionLook,
+      imagen_look: imagenLook?.uri || null,
     }
 
     setIsLoading(true)
@@ -129,7 +130,6 @@ const RegisterScreen = ({ navigation }) => {
       })
 
       const result = await response.json()
-      console.log('Respuesta del servidor:', result)
 
       if (response.ok) {
         Alert.alert('✅ Registro exitoso', 'Usuario creado correctamente.', [ 
@@ -140,117 +140,239 @@ const RegisterScreen = ({ navigation }) => {
       }
 
     } catch (error) {
-      console.error('Error al conectar con la API:', error)
       Alert.alert('⚠️ Error de conexión', 'No se pudo conectar con el servidor.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const inputStyle = {
-    backgroundColor: isDark ? '#2d2d2d' : '#ffffff',
-    borderColor: isDark ? '#404040' : '#e1e8ed',
-    color: isDark ? '#ffffff' : '#000000',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+  const selectImage = () => {
+    Alert.alert(
+      'Seleccionar imagen',
+      'Elige una opción',
+      [
+        { text: 'Cámara', onPress: () => openCamera() },
+        { text: 'Galería', onPress: () => openGallery() },
+        { text: 'Cancelar', style: 'cancel' }
+      ]
+    )
+  }
+
+  const openCamera = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: 'Permiso de Cámara',
+            message: 'La aplicación necesita acceso a la cámara para tomar fotos',
+            buttonNeutral: 'Preguntar después',
+            buttonNegative: 'Cancelar',
+            buttonPositive: 'Aceptar',
+          }
+        )
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          Alert.alert('Permiso denegado', 'Se necesita permiso de cámara para tomar fotos')
+          return
+        }
+      } catch (err) {
+        return
+      }
+    }
+
+    launchCamera(
+      {
+        mediaType: 'photo',
+        quality: 0.7,
+        maxWidth: 800,
+        maxHeight: 800,
+        includeBase64: false,
+        saveToPhotos: false
+      },
+      (response) => {
+        if (response.didCancel) {
+          console.log('Usuario canceló la cámara')
+        } else if (response.errorMessage) {
+          Alert.alert('Error', 'No se pudo abrir la cámara')
+        } else if (response.assets && response.assets[0]) {
+          setImagenLook(response.assets[0])
+        }
+      }
+    )
+  }
+
+  const openGallery = () => {
+    launchImageLibrary(
+      {
+        mediaType: 'photo',
+        quality: 0.7,
+        maxWidth: 800,
+        maxHeight: 800,
+        includeBase64: false
+      },
+      (response) => {
+        if (response.didCancel) {
+          console.log('Usuario canceló la galería')
+        } else if (response.errorMessage) {
+          Alert.alert('Error', 'No se pudo abrir la galería')
+        } else if (response.assets && response.assets[0]) {
+          setImagenLook(response.assets[0])
+        }
+      }
+    )
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? '#121212' : '#f8f9fa' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? '#0a0a0a' : '#f8fafc' }}>
       <KeyboardAvoidingView 
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView 
-          style={[styles.container, { backgroundColor: isDark ? '#121212' : '#f8f9fa' }]}
+          style={{ flex: 1 }}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Animated.View style={{ opacity: fadeAnim }}>
+          <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
             
-            {/* Header con padding superior */}
+            {/* Header Minimalista */}
             <View style={styles.header}>
-              <Text style={[styles.title, { color: isDark ? '#ffffff' : '#2c3e50' }]}>
+              <View style={styles.logoContainer}>
+                <Text style={[
+                  styles.logoIcon,
+                  { color: isDark ? '#60a5fa' : '#2563eb' }
+                ]}>
+                  👤
+                </Text>
+              </View>
+              <Text style={[
+                styles.title,
+                { color: isDark ? '#f8fafc' : '#0f172a' }
+              ]}>
                 Crear Cuenta
               </Text>
-              <Text style={[styles.subtitle, { color: isDark ? '#bbbbbb' : '#666666' }]}>
-                Completa tus datos para registrarte
+              <Text style={[
+                styles.subtitle,
+                { color: isDark ? '#94a3b8' : '#64748b' }
+              ]}>
+                Únete a nuestra comunidad
               </Text>
             </View>
 
-            {/* Sección de Verificación */}
+            {/* Sección de Verificación - Más compacta */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: isDark ? '#ffffff' : '#2c3e50' }]}>
-                Verificación de Correo
-              </Text>
-              
-              <TextInput
-                style={[styles.input, inputStyle]}
-                placeholder="Correo Electrónico"
-                placeholderTextColor={isDark ? '#888888' : '#666666'}
-                value={correo}
-                onChangeText={setCorreo}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
-              <TouchableOpacity 
-                style={[
-                  styles.smallButton, 
-                  isLoading && styles.buttonDisabled
-                ]} 
-                onPress={enviarCodigo}
-                disabled={isLoading}
-              >
-                <Text style={styles.smallButtonText}>
-                  {isLoading ? 'Enviando...' : (codigoEnviado ? 'Reenviar código' : 'Enviar código')}
+              <View style={styles.sectionHeader}>
+                <Text style={[
+                  styles.sectionTitle,
+                  { color: isDark ? '#f1f5f9' : '#1e293b' }
+                ]}>
+                  Verificación
                 </Text>
-              </TouchableOpacity>
+                {codigoEnviado && (
+                  <View style={styles.verifiedBadge}>
+                    <Text style={styles.verifiedText}>✓ Enviado</Text>
+                  </View>
+                )}
+              </View>
 
-              {codigoEnviado && (
-                <View style={styles.verifiedBadge}>
-                  <Text style={styles.verifiedText}>✓ Código enviado</Text>
-                </View>
-              )}
+              <View style={styles.emailContainer}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      borderColor: isDark ? '#334155' : '#e2e8f0',
+                      color: isDark ? '#f1f5f9' : '#0f172a',
+                      flex: 1
+                    }
+                  ]}
+                  placeholder="Correo electrónico"
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                  value={correo}
+                  onChangeText={setCorreo}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity 
+                  style={[
+                    styles.verificationButton,
+                    isLoading && styles.buttonDisabled
+                  ]} 
+                  onPress={enviarCodigo}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.verificationButtonText}>
+                    {isLoading ? '...' : (codigoEnviado ? 'Reenviar' : 'Enviar')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* Sección de Información Personal */}
+            {/* Sección de Credenciales */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: isDark ? '#ffffff' : '#2c3e50' }]}>
-                Información Personal
+              <Text style={[
+                styles.sectionTitle,
+                { color: isDark ? '#f1f5f9' : '#1e293b' }
+              ]}>
+                Credenciales
               </Text>
 
               <TextInput
-                style={[styles.input, inputStyle]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                    color: isDark ? '#f1f5f9' : '#0f172a',
+                  }
+                ]}
                 placeholder="Contraseña"
-                placeholderTextColor={isDark ? '#888888' : '#666666'}
+                placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
               />
+            </View>
+
+            {/* Sección de Información Personal */}
+            <View style={styles.section}>
+              <Text style={[
+                styles.sectionTitle,
+                { color: isDark ? '#f1f5f9' : '#1e293b' }
+              ]}>
+                Información Personal
+              </Text>
 
               <View style={styles.row}>
                 <TextInput
-                  style={[styles.input, styles.halfInput, inputStyle]}
+                  style={[
+                    styles.input,
+                    styles.halfInput,
+                    {
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      borderColor: isDark ? '#334155' : '#e2e8f0',
+                      color: isDark ? '#f1f5f9' : '#0f172a',
+                    }
+                  ]}
                   placeholder="Nombre"
-                  placeholderTextColor={isDark ? '#888888' : '#666666'}
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                   value={nombre}
                   onChangeText={setNombre}
                 />
                 
                 <TextInput
-                  style={[styles.input, styles.halfInput, inputStyle]}
+                  style={[
+                    styles.input,
+                    styles.halfInput,
+                    {
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      borderColor: isDark ? '#334155' : '#e2e8f0',
+                      color: isDark ? '#f1f5f9' : '#0f172a',
+                    }
+                  ]}
                   placeholder="Apellidos"
-                  placeholderTextColor={isDark ? '#888888' : '#666666'}
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                   value={apellidos}
                   onChangeText={setApellidos}
                 />
@@ -258,18 +380,34 @@ const RegisterScreen = ({ navigation }) => {
 
               <View style={styles.row}>
                 <TextInput
-                  style={[styles.input, styles.thirdInput, inputStyle]}
+                  style={[
+                    styles.input,
+                    styles.thirdInput,
+                    {
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      borderColor: isDark ? '#334155' : '#e2e8f0',
+                      color: isDark ? '#f1f5f9' : '#0f172a',
+                    }
+                  ]}
                   placeholder="Edad"
-                  placeholderTextColor={isDark ? '#888888' : '#666666'}
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                   value={edad}
                   onChangeText={setEdad}
                   keyboardType="numeric"
                 />
                 
                 <TextInput
-                  style={[styles.input, styles.twoThirdInput, inputStyle]}
-                  placeholder="Tipo de Sangre (ej: O+, A-, B+)"
-                  placeholderTextColor={isDark ? '#888888' : '#666666'}
+                  style={[
+                    styles.input,
+                    styles.twoThirdInput,
+                    {
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      borderColor: isDark ? '#334155' : '#e2e8f0',
+                      color: isDark ? '#f1f5f9' : '#0f172a',
+                    }
+                  ]}
+                  placeholder="Tipo de sangre"
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                   value={tipoSangre}
                   onChangeText={setTipoSangre}
                   autoCapitalize="characters"
@@ -279,48 +417,150 @@ const RegisterScreen = ({ navigation }) => {
 
             {/* Sección de Ubicación */}
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: isDark ? '#ffffff' : '#2c3e50' }]}>
+              <Text style={[
+                styles.sectionTitle,
+                { color: isDark ? '#f1f5f9' : '#1e293b' }
+              ]}>
                 Ubicación
               </Text>
 
               <TextInput
-                style={[styles.input, inputStyle]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                    color: isDark ? '#f1f5f9' : '#0f172a',
+                  }
+                ]}
                 placeholder="Estado"
-                placeholderTextColor={isDark ? '#888888' : '#666666'}
+                placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                 value={estado}
                 onChangeText={setEstado}
               />
 
               <TextInput
-                style={[styles.input, inputStyle]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                    color: isDark ? '#f1f5f9' : '#0f172a',
+                  }
+                ]}
                 placeholder="Municipio"
-                placeholderTextColor={isDark ? '#888888' : '#666666'}
+                placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                 value={municipio}
                 onChangeText={setMunicipio}
               />
 
-              <TextInput
-                style={[styles.input, inputStyle]}
-                placeholder="Ciudad / Pueblo / Comunidad"
-                placeholderTextColor={isDark ? '#888888' : '#666666'}
-                value={ciudad}
-                onChangeText={setCiudad}
-              />
-              
-              <TextInput
-                style={[styles.input, inputStyle]}
-                placeholder="Código Postal"
-                placeholderTextColor={isDark ? '#888888' : '#666666'}
-                value={cp}
-                onChangeText={setCp}
-                keyboardType="numeric"
-              />
+              <View style={styles.row}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.twoThirdInput,
+                    {
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      borderColor: isDark ? '#334155' : '#e2e8f0',
+                      color: isDark ? '#f1f5f9' : '#0f172a',
+                    }
+                  ]}
+                  placeholder="Ciudad"
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                  value={ciudad}
+                  onChangeText={setCiudad}
+                />
+                
+                <TextInput
+                  style={[
+                    styles.input,
+                    styles.thirdInput,
+                    {
+                      backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                      borderColor: isDark ? '#334155' : '#e2e8f0',
+                      color: isDark ? '#f1f5f9' : '#0f172a',
+                    }
+                  ]}
+                  placeholder="CP"
+                  placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                  value={cp}
+                  onChangeText={setCp}
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
 
-            {/* Botón de Registro con margen superior */}
+            {/* Sección de Perfil */}
+            <View style={styles.section}>
+              <Text style={[
+                styles.sectionTitle,
+                { color: isDark ? '#f1f5f9' : '#1e293b' }
+              ]}>
+                Perfil
+              </Text>
+
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.textArea,
+                  {
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                    color: isDark ? '#f1f5f9' : '#0f172a',
+                  }
+                ]}
+                placeholder="Descripción personal (opcional)"
+                placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
+                value={descripcionLook}
+                onChangeText={setDescripcionLook}
+                multiline={true}
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+
+              <TouchableOpacity 
+                style={[
+                  styles.imageButton,
+                  {
+                    backgroundColor: isDark ? '#1e293b' : '#ffffff',
+                    borderColor: isDark ? '#334155' : '#e2e8f0',
+                  }
+                ]}
+                onPress={selectImage}
+              >
+                {imagenLook ? (
+                  <View style={styles.imageContainer}>
+                    <Image source={{ uri: imagenLook.uri }} style={styles.selectedImage} />
+                    <Text style={[
+                      styles.imageButtonText,
+                      { color: isDark ? '#60a5fa' : '#2563eb' }
+                    ]}>
+                      Cambiar imagen
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Text style={[
+                      styles.imagePlaceholderIcon,
+                      { color: isDark ? '#64748b' : '#94a3b8' }
+                    ]}>
+                      
+                    </Text>
+                    <Text style={[
+                      styles.imageButtonText,
+                      { color: isDark ? '#94a3b8' : '#64748b' }
+                    ]}>
+                      Seleccionar imagen
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Botón de Registro */}
             <TouchableOpacity 
               style={[
-                styles.button, 
+                styles.button,
                 (!codigoEnviado || isLoading) && styles.buttonDisabled
               ]} 
               onPress={handleRegister}
@@ -331,76 +571,84 @@ const RegisterScreen = ({ navigation }) => {
               </Text>
             </TouchableOpacity>
             
-            {/* Enlace para login con padding inferior */}
+            {/* Enlace para login */}
             <View style={styles.footer}>
+              <Text style={[
+                styles.footerText,
+                { color: isDark ? '#64748b' : '#94a3b8' }
+              ]}>
+                ¿Ya tienes cuenta?
+              </Text>
               <TouchableOpacity 
-                style={styles.linkButton} 
                 onPress={() => navigation.navigate('Login')}
               >
-                <Text style={styles.linkText}>¿Ya tienes cuenta? Inicia sesión</Text>
+                <Text style={[
+                  styles.footerLink,
+                  { color: isDark ? '#60a5fa' : '#2563eb' }
+                ]}>
+                  Inicia sesión
+                </Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
         </ScrollView>
 
-        {/* Modal para código de verificación */}
+        {/* Modal para código de verificación - Mejorado */}
         <Modal
           visible={showCodeModal}
           animationType="slide"
           transparent={true}
           onRequestClose={() => {
-            // No permitir cerrar el modal hasta verificar el código
             Alert.alert('Verificación requerida', 'Debes ingresar el código para continuar.')
           }}
         >
           <SafeAreaView style={styles.modalOverlay}>
             <View style={[styles.modalContent, { 
-              backgroundColor: isDark ? '#2d2d2d' : '#ffffff' 
+              backgroundColor: isDark ? '#1e293b' : '#ffffff' 
             }]}>
-              <Text style={[styles.modalTitle, { 
-                color: isDark ? '#ffffff' : '#2c3e50' 
-              }]}>
-                Verificación de Correo
-              </Text>
-              
-              <Text style={[styles.modalText, { 
-                color: isDark ? '#bbbbbb' : '#666666' 
-              }]}>
-                Hemos enviado un código de verificación a:
-              </Text>
-              
-              <Text style={[styles.emailText, { 
-                color: isDark ? '#4dabf7' : '#1971c2' 
-              }]}>
-                {correo}
-              </Text>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { 
+                  color: isDark ? '#f1f5f9' : '#1e293b' 
+                }]}>
+                  Verificación
+                </Text>
+                <Text style={[styles.modalSubtitle, { 
+                  color: isDark ? '#94a3b8' : '#64748b' 
+                }]}>
+                  Ingresa el código enviado a:
+                </Text>
+                <Text style={[styles.emailText, { 
+                  color: isDark ? '#60a5fa' : '#2563eb' 
+                }]}>
+                  {correo}
+                </Text>
+              </View>
 
               <TextInput
                 style={[styles.modalInput, { 
-                  backgroundColor: isDark ? '#1a1a1a' : '#f8f9fa',
-                  color: isDark ? '#ffffff' : '#000000',
-                  borderColor: isDark ? '#404040' : '#e1e8ed'
+                  backgroundColor: isDark ? '#0f172a' : '#f8fafc',
+                  color: isDark ? '#f1f5f9' : '#0f172a',
+                  borderColor: isDark ? '#334155' : '#e2e8f0'
                 }]}
-                placeholder="Ingresa el código de 6 dígitos"
-                placeholderTextColor={isDark ? '#888888' : '#666666'}
+                placeholder="Código de 6 dígitos"
+                placeholderTextColor={isDark ? '#64748b' : '#94a3b8'}
                 value={codigo}
                 onChangeText={setCodigo}
                 keyboardType="numeric"
                 maxLength={6}
                 autoFocus={true}
+                textAlign="center"
               />
 
-              <View style={styles.modalButtons}>
-                <TouchableOpacity 
-                  style={[styles.modalButton, styles.verifyButton]}
-                  onPress={verificarCodigo}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.modalButtonText}>
-                    {isLoading ? 'Verificando...' : 'Verificar Código'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.verifyButton]}
+                onPress={verificarCodigo}
+                disabled={isLoading}
+              >
+                <Text style={styles.modalButtonText}>
+                  {isLoading ? 'Verificando...' : 'Verificar Código'}
+                </Text>
+              </TouchableOpacity>
 
               <TouchableOpacity 
                 style={styles.resendLink}
@@ -408,7 +656,7 @@ const RegisterScreen = ({ navigation }) => {
                 disabled={isLoading}
               >
                 <Text style={[styles.resendText, { 
-                  color: isDark ? '#4dabf7' : '#1971c2' 
+                  color: isDark ? '#60a5fa' : '#2563eb' 
                 }]}>
                   ¿No recibiste el código? Reenviar
                 </Text>
@@ -420,199 +668,5 @@ const RegisterScreen = ({ navigation }) => {
     </SafeAreaView>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { 
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 20, // Reducido para Android
-    paddingBottom: 40, // Espacio extra en la parte inferior
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-    marginTop: 100, // Espacio adicional en el header
-  },
-  title: { 
-    fontSize: 32, 
-    fontWeight: '700', 
-    textAlign: 'center', 
-    marginBottom: 8 
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  halfInput: {
-    width: '48%',
-  },
-  thirdInput: {
-    width: '30%',
-  },
-  twoThirdInput: {
-    width: '65%',
-  },
-  smallButton: {
-    backgroundColor: '#1971c2',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#1971c2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  smallButtonText: { 
-    color: 'white', 
-    fontWeight: '600', 
-    fontSize: 16 
-  },
-  verifiedBadge: {
-    backgroundColor: '#40c057',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  verifiedText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  button: {
-    backgroundColor: '#2f9e44',
-    padding: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 10, // Espacio antes del footer
-    shadowColor: '#2f9e44',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  buttonDisabled: {
-    backgroundColor: '#868e96',
-    shadowColor: '#868e96',
-  },
-  buttonText: { 
-    color: 'white', 
-    fontSize: 18, 
-    fontWeight: '600' 
-  },
-  footer: {
-    marginTop: 'auto', // Empuja el footer hacia abajo
-    paddingBottom: 30, // Espacio extra para botones de navegación de Android
-  },
-  linkButton: { 
-    alignItems: 'center', 
-    paddingVertical: 10,
-  },
-  linkText: { 
-    color: '#1971c2', 
-    fontSize: 16, 
-    fontWeight: '500' 
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  modalText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emailText: {
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  modalInput: {
-    borderWidth: 2,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 18,
-    textAlign: 'center',
-    fontWeight: '600',
-    letterSpacing: 4,
-    marginBottom: 24,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  modalButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  verifyButton: {
-    backgroundColor: '#2f9e44',
-  },
-  modalButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  resendLink: {
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  resendText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-})
 
 export default RegisterScreen
