@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -13,21 +13,25 @@ import {
   Dimensions,
   SafeAreaView
 } from 'react-native'
+import { useUser } from '../context/UserContext'
 import { loginStyles as styles } from '../styles/LoginStyles'
 import { API_BASE_URL } from '@env'
 
 const { width, height } = Dimensions.get('window')
 
 const LoginScreen = ({ navigation }) => {
+  const { updateUser } = useUser()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [rememberMe, setRememberMe] = useState(false)
   const [fadeAnim] = useState(new Animated.Value(0))
   const [slideAnim] = useState(new Animated.Value(30))
 
   const isDark = useColorScheme() === 'dark'
 
-  React.useEffect(() => {
+  useEffect(() => {
+    checkSavedSession()
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -41,6 +45,10 @@ const LoginScreen = ({ navigation }) => {
       })
     ]).start()
   }, [])
+
+  const checkSavedSession = () => {
+    // UserContext handles session checking automatically
+  }
   
   const handleLogin = async () => {
     if (!email || !password) {
@@ -51,21 +59,29 @@ const LoginScreen = ({ navigation }) => {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${API_BASE_URL}/get_users`)
+      const response = await fetch(`${API_BASE_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          correo: email,
+          password: password
+        })
+      })
+
       const data = await response.json()
 
-      console.log("Usuarios encontrados:", data)
-
-      // Buscar coincidencia exacta
-      const usuario = data.find(
-        u => u.correo === email && u.password === password
-      )
-
-      if (usuario) {
-        console.log("Login exitoso:", usuario)
+      if (response.ok) {
+        console.log("Login exitoso:", data.usuario)
+        
+        // Actualizar contexto global
+        await updateUser(data.usuario)
+        console.log('Usuario actualizado en contexto')
+        
         navigation.navigate('HomeMapbox')
       } else {
-        Alert.alert("Credenciales incorrectas", "Email o contraseña no coinciden")
+        Alert.alert("Error", data.error || "Credenciales incorrectas")
       }
 
     } catch (error) {
@@ -184,6 +200,38 @@ const LoginScreen = ({ navigation }) => {
                   autoComplete="password"
                 />
               </View>
+
+              {/* Remember Me */}
+              <TouchableOpacity 
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginVertical: 16
+                }}
+                onPress={() => setRememberMe(!rememberMe)}
+              >
+                <View style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 4,
+                  borderWidth: 2,
+                  borderColor: isDark ? '#60a5fa' : '#2563eb',
+                  backgroundColor: rememberMe ? (isDark ? '#60a5fa' : '#2563eb') : 'transparent',
+                  marginRight: 12,
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}>
+                  {rememberMe && (
+                    <Text style={{ color: '#fff', fontSize: 12 }}>✓</Text>
+                  )}
+                </View>
+                <Text style={{
+                  color: isDark ? '#94a3b8' : '#64748b',
+                  fontSize: 14
+                }}>
+                  Recordar sesión
+                </Text>
+              </TouchableOpacity>
 
               {/* Forgot Password */}
               <TouchableOpacity style={styles.forgotPassword}>
